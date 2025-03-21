@@ -293,6 +293,15 @@ ifeq ($(ARCH),apple-silicon)
 	neon = yes
 endif
 
+ifeq ($(ARCH),ios-arm64)
+	arch = arm64
+	bits = 64
+	prefetch = yes
+	popcnt = yes
+	neon = yes
+	OS = iOS
+endif
+
 ifeq ($(ARCH),ppc-32)
 	arch = ppc
 	bits = 32
@@ -439,9 +448,23 @@ ifeq ($(COMP),clang)
 	endif
 endif
 
+ifeq ($(OS),iOS)
+	CXX = xcrun -sdk iphoneos clang++
+	CC = xcrun -sdk iphoneos clang
+	CXXFLAGS += -arch arm64 -isysroot $(shell xcrun -sdk iphoneos --show-sdk-path) -mios-version-min=12.0
+	LDFLAGS += -arch arm64 -isysroot $(shell xcrun -sdk iphoneos --show-sdk-path) -mios-version-min=12.0
+endif
+
 ifeq ($(KERNEL),Darwin)
-	CXXFLAGS += -arch $(arch) -mmacosx-version-min=10.14
-	LDFLAGS += -arch $(arch) -mmacosx-version-min=10.14
+	ifeq ($(OS),iOS)
+		CXX = xcrun -sdk iphoneos clang++
+		CC = xcrun -sdk iphoneos clang
+		CXXFLAGS += -arch arm64 -isysroot $(shell xcrun -sdk iphoneos --show-sdk-path) -mios-version-min=12.0
+		LDFLAGS += -arch arm64 -isysroot $(shell xcrun -sdk iphoneos --show-sdk-path) -mios-version-min=12.0
+	else
+		CXXFLAGS += -arch $(arch) -mmacosx-version-min=10.14
+		LDFLAGS += -arch $(arch) -mmacosx-version-min=10.14
+	endif
 	XCRUN = xcrun
 endif
 
@@ -975,6 +998,12 @@ icc-profile-use:
 	$(MAKE) ARCH=$(ARCH) COMP=$(COMP) \
 	EXTRACXXFLAGS='-prof_use -prof_dir ./profdir' \
 	all
+
+# Static library target for iOS
+ios-lib: CXXFLAGS += -fPIC
+ios-lib:
+	$(MAKE) ARCH=ios-arm64 COMP=clang all
+	$(CXX) -static -o libfairystockfish.a $(OBJS)
 
 .depend:
 	-@$(CXX) $(DEPENDFLAGS) -MM $(SRCS) > $@ 2> /dev/null
